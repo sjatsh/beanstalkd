@@ -20,7 +20,7 @@ static int reserve(Wal *w, int n);
 // If no files are found, sets w->next to 1 and
 // returns a large number.
 static int
-walscandir(Wal *w)
+walscandir(Wal *w)  // 扫描文件夹 w->next 设置成当前最大下标+1，防止文件重复  返回最小下标
 {
     static char base[] = "binlog.";
     static const int len = sizeof(base) - 1;
@@ -88,6 +88,7 @@ usenext(Wal *w)
 }
 
 
+// 计算所有binlog文件 负载情况
 static int
 ratio(Wal *w)
 {
@@ -150,6 +151,7 @@ walcompact(Wal *w)
 {
     int r;
 
+    // 如果负载>=2就进行拆分和迁移
     for (r=ratio(w); r>=2; r--) {
         moveone(w);
     }
@@ -202,6 +204,7 @@ walmaint(Wal *w)
 {
     if (w->use) {
         walcompact(w);
+        // fsync刷盘
         walsync(w);
     }
 }
@@ -439,19 +442,23 @@ walread(Wal *w, Job *list, int min)
     int i;
     int err = 0;
 
+    // 遍历当前所有binlog
     for (i = min; i < w->next; i++) {
+        // 创建File对象
         File *f = new(File);
         if (!f) {
             twarnx("OOM");
             exit(1);
         }
 
+        // 初始化File对象 设置文件路径和下标
         if (!fileinit(f, w, i)) {
             free(f);
             twarnx("OOM");
             exit(1);
         }
 
+        // 打开binlog
         int fd = open(f->path, O_RDONLY);
         if (fd < 0) {
             twarn("open %s", f->path);
@@ -461,8 +468,11 @@ walread(Wal *w, Job *list, int min)
         }
 
         f->fd = fd;
+        // 添加到文件链表
         fileadd(f, w);
+        // binlog读取
         err |= fileread(f, list);
+        // 关闭文件
         if (close(fd) == -1)
             twarn("close");
     }
@@ -479,7 +489,9 @@ walinit(Wal *w, Job *list)
 {
     int min;
 
+    // 文件夹扫描返回当前最小下标
     min = walscandir(w);
+    // binlog读取
     walread(w, list, min);
 
     // first writable file

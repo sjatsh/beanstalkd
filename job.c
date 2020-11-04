@@ -7,9 +7,12 @@ static uint64 next_id = 1;
 
 static int cur_prime = 0;
 
-static Job *all_jobs_init[12289] = {0};
+static Job *all_jobs_init[12289] = {0}; // 初始化
 static Job **all_jobs = all_jobs_init;
+
+// job数组容量12289
 static size_t all_jobs_cap = 12289; /* == primes[0] */
+// job数组已使用数量
 static size_t all_jobs_used = 0;
 
 static int hash_table_was_oom = 0;
@@ -22,6 +25,7 @@ _get_job_hash_index(uint64 job_id)
     return job_id % all_jobs_cap;
 }
 
+// 加入job数组
 static void
 store_job(Job *j)
 {
@@ -33,7 +37,7 @@ store_job(Job *j)
     all_jobs[index] = j;
     all_jobs_used++;
 
-    /* accept a load factor of 4 */
+    // 使用数超过容量的 1/4 时进行rehash扩容
     if (all_jobs_used > (all_jobs_cap << 2)) rehash(1);
 }
 
@@ -45,12 +49,13 @@ rehash(int is_upscaling)
     int old_prime = cur_prime;
     int d = is_upscaling ? 1 : -1;
 
-    if (cur_prime + d >= NUM_PRIMES) return;
-    if (cur_prime + d < 0) return;
+    if (cur_prime + d >= NUM_PRIMES || cur_prime + d < 0) return;
+
     if (is_upscaling && hash_table_was_oom) return;
 
     cur_prime += d;
 
+    // 获取新的容量并申请内存
     all_jobs_cap = primes[cur_prime];
     all_jobs = calloc(all_jobs_cap, sizeof(Job *));
     if (!all_jobs) {
@@ -62,9 +67,11 @@ rehash(int is_upscaling)
         all_jobs_used = old_used;
         return;
     }
+
     all_jobs_used = 0;
     hash_table_was_oom = 0;
 
+    // 遍历老数组放入新数组
     for (i = 0; i < old_cap; i++) {
         while (old[i]) {
             Job *j = old[i];
@@ -73,6 +80,8 @@ rehash(int is_upscaling)
             store_job(j);
         }
     }
+
+    // 老数组不是初始数组则free
     if (old != all_jobs_init) {
         free(old);
     }
@@ -90,6 +99,7 @@ job_find(uint64 job_id)
     return jh;
 }
 
+// 创建和初始化job
 Job *
 allocate_job(int body_size)
 {

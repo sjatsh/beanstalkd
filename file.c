@@ -129,15 +129,24 @@ fileread(File *f, Job *list)
 {
     int err = 0, v;
 
+    // 获取版本号
     if (!readfull(f, &v, sizeof(v), &err, "version")) {
         return err;
     }
+
     switch (v) {
+        // v7版本
     case Walver:
+        // 文件引用计数+1
         fileincref(f);
+
+        // 循环读取文件中job信息
         while (readrec(f, list, &err));
+
+        // 文件引用计数-1
         filedecref(f);
         return err;
+        // v5版本
     case Walver5:
         fileincref(f);
         while (readrec5(f, list, &err));
@@ -163,6 +172,7 @@ readrec(File *f, Job *l, int *err)
     Tube *t;
     char tubename[MAX_TUBE_NAME_LEN];
 
+    // 读取四个字节的tube name长度
     r = read(f->fd, &namelen, sizeof(int));
     if (r == -1) {
         twarn("read");
@@ -187,6 +197,7 @@ readrec(File *f, Job *l, int *err)
     }
 
     if (namelen) {
+        // 读取tube name名字
         r = readfull(f, tubename, namelen, err, "tube name");
         if (!r) {
             return 0;
@@ -195,6 +206,7 @@ readrec(File *f, Job *l, int *err)
     }
     tubename[namelen] = '\0';
 
+    // 读取job描述信息
     r = readfull(f, &jr, sizeof(Jobrec), err, "job struct");
     if (!r) {
         return 0;
@@ -204,6 +216,7 @@ readrec(File *f, Job *l, int *err)
     // are we reading trailing zeroes?
     if (!jr.id) return 0;
 
+    // 通过id查询job
     j = job_find(jr.id);
     if (!(j || namelen)) {
         // We read a short record without having seen a
@@ -230,6 +243,8 @@ readrec(File *f, Job *l, int *err)
                         job_data_size_limit);
                 goto Error;
             }
+
+            // job没找到直接创建
             t = tube_find_or_make(tubename);
             j = make_job_with_id(jr.pri, jr.delay, jr.ttr, jr.body_size,
                                  t, jr.id);
@@ -246,16 +261,16 @@ readrec(File *f, Job *l, int *err)
                 warnpos(f, -r, "was %d, now %d", j->r.body_size, jr.body_size);
                 goto Error;
             }
+            // 读取job body
             r = readfull(f, j->body, j->r.body_size, err, "job body");
             if (!r) {
                 goto Error;
             }
             sz += r;
 
-            // since this is a full record, we can move
-            // the file pointer and decref the old
-            // file, if any
+            // job从原先文件中删除
             filermjob(j->file, j);
+            // 重新添加回文件
             fileaddjob(f, j);
         }
         j->walused += sz;

@@ -9,6 +9,7 @@
 
 #define SAFETY_MARGIN (1000000000) /* 1 second */
 
+// 当前coon、worker、producer数量
 static int cur_conn_ct = 0, cur_worker_ct = 0, cur_producer_ct = 0;
 static uint tot_conn_ct = 0;
 int verbose = 0;
@@ -40,6 +41,7 @@ make_conn(int fd, char start_state, Tube *use, Tube *watch)
         return NULL;
     }
 
+    // 初始化客户端连接中监听的tube列表
     ms_init(&c->watch, (ms_event_fn) on_watch, (ms_event_fn) on_ignore);
     if (!ms_append(&c->watch, watch)) {
         free(c);
@@ -47,6 +49,7 @@ make_conn(int fd, char start_state, Tube *use, Tube *watch)
         return NULL;
     }
 
+    // conn.use 赋值成传入的use
     TUBE_ASSIGN(c->use, use);
     use->using_ct++;
 

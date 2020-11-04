@@ -15,7 +15,7 @@
 
 static int epfd;
 
-
+// 创建epoll句柄
 int
 sockinit(void)
 {
@@ -61,8 +61,7 @@ sockwant(Socket *s, int rw)
 
 
 int
-socknext(Socket **s, int64 timeout)
-{
+socknext(Socket **s, int64 timeout){
     int r;
     struct epoll_event ev = {.events=0};
 

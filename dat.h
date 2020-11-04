@@ -199,13 +199,16 @@ enum
 // you won't have to worry about misinterpreting the contents of a binlog
 // that you generated with a dev copy of beanstalkd.
 
+//全局变量数组 all_jobs 存储所有的 job，经过 hash 存储。
+//tube 中的 buried job 和 Conn 中的 reservered_jobs 是双向链表形式。
+//tube 的 delay 和 ready job 队列使用堆来存储。
 struct Jobrec {
     uint64 id;
-    uint32 pri;
-    int64  delay;
-    int64  ttr;
-    int32  body_size;
-    int64  created_at;
+    uint32 pri;          // 优先级
+    int64  delay;        // delay时间
+    int64  ttr;          // job处理的超时时间
+    int32  body_size;    // job body大小
+    int64  created_at;   // 创建时间
 
     // deadline_at is a timestamp, in nsec, that points to:
     // * time when job will become ready for delayed job,
@@ -218,7 +221,7 @@ struct Jobrec {
     uint32 release_ct;
     uint32 bury_ct;
     uint32 kick_ct;
-    byte   state;
+    byte   state;        // job状态（Ready，Reserved，Buried，Delayed）
 };
 
 struct Job {
@@ -226,38 +229,36 @@ struct Job {
     Jobrec r;
 
     // bookeeping fields; these are in-memory only
-    char pad[6];
-    Tube *tube;
-    Job *prev, *next;           // linked list of jobs
-    Job *ht_next;               // Next job in a hash table list
-    size_t heap_index;          // where is this job in its current heap
-    File *file;
+    char pad[6];                // 占位字段
+    Tube *tube;                 // 所属tube
+    Job *prev, *next;           // 双向链表pre和next
+    Job *ht_next;               // hash碰撞时开链表的下一个job
+    size_t heap_index;          // 堆索引 使用数组实现
+    File *file;                 // 文件相关信息
     Job  *fnext;
     Job  *fprev;
-    void *reserver;
-    int walresv;
+    void *reserver;             // 消费这个job的coon，如果job没有被消费=NULL
+    int walresv;                // 文件相关
     int walused;
 
-    char *body;                 // written separately to the wal
+    char *body;                 // job具体信息
 };
 
 struct Tube {
-    uint refs;
-    char name[MAX_TUBE_NAME_LEN];
-    Heap ready;
-    Heap delay;
-    Ms waiting_conns;           // conns waiting for the job at this moment
-    struct stats stat;
-    uint using_ct;
-    uint watching_ct;
+    uint refs;                      // 引用计数 用于GC
+    char name[MAX_TUBE_NAME_LEN];   // tube名字
+    Heap ready;                     // ready job队列 最小堆
+    Heap delay;                     // delay job队列
+    Ms waiting_conns;               // 消费tube的conns列表
+    struct stats stat;              // job各个状态统计
+    uint using_ct;                  // tube被多少coon监听
+    uint watching_ct;               // waiting连接个数,coon加入waiting链表的时候+1 删除时-1
 
-    // pause is set to the duration of the current pause, otherwise 0, in nsec.
-    int64 pause;
+    int64 pause;                    // 暂停时间，单位nsec，pause-tube 命令设置
 
-    // unpause_at is a timestamp when to unpause the tube, in nsec.
-    int64 unpause_at;
+    int64 unpause_at;               // 暂停结束时间的时间戳
 
-    Job buried;                 // linked list header
+    Job buried;                     // 休眠状态job链表
 };
 
 
@@ -362,9 +363,10 @@ int make_server_socket(char *host, char *port);
 // CONN_TYPE_* are bit masks used to track the type of connection.
 // A put command adds the PRODUCER type, "reserve*" adds the WORKER type.
 // If connection awaits for data, then it has WAITING type.
-#define CONN_TYPE_PRODUCER 1
-#define CONN_TYPE_WORKER   2
-#define CONN_TYPE_WAITING  4
+// 用于位运算的类型
+#define CONN_TYPE_PRODUCER 1  // 是生产者
+#define CONN_TYPE_WORKER   2  // 有reserve job添加WORKER类型
+#define CONN_TYPE_WAITING  4  // 如果连接等待数据 设置WAITING类型
 
 struct Conn {
     Server *srv;
@@ -375,14 +377,15 @@ struct Conn {
     Tube   *use;        // tube currently in use
     int64  tickat;      // time at which to do more work; determines pos in heap
     size_t tickpos;     // position in srv->conns, stale when in_conns=0
-    byte   in_conns;    // 1 if the conn is in srv->conns heap, 0 otherwise
+    byte   in_conns;    // 1: 在srv.coons链表中 0：不在
     Job    *soonest_job;// memoization of the soonest job
     int    rw;          // currently want: 'r', 'w', or 'h'
 
     // How long client should "wait" for the next job; -1 means forever.
+    // 等待下一个job的超时时间;-1表示永久
     int    pending_timeout;
 
-    // Used to inform state machine that client no longer waits for the data.
+    // 通知客户端不再等待数据
     char   halfclosed;
 
     char   cmd[LINE_BUF_SIZE];     // this string is NOT NUL-terminated
@@ -398,14 +401,15 @@ struct Conn {
     // while in_job_read is nonzero, we are in bit bucket mode and
     // in_job_read's meaning is inverted -- then it counts the bytes that
     // remain to be thrown away.
-    int64 in_job_read;
-    Job   *in_job;              // a job to be read from the client
 
-    Job *out_job;               // a job to be sent to the client
-    int out_job_sent;           // how many bytes of *out_job were sent already
+    int64 in_job_read;          // 从客户端已经读取的in_job-body大小
+    Job   *in_job;              // 从客户端读取的job
+
+    Job *out_job;               // 要发送给客户端的job
+    int out_job_sent;           // 已经发送给客户端的out_job->body大小
 
     Ms  watch;                  // the set of watched tubes by the connection
-    Job reserved_jobs;          // linked list header
+    Job reserved_jobs;          // 正在处理的reserved job链表
 };
 int  conn_less(void *ca, void *cb);
 void conn_setpos(void *c, size_t i);
@@ -489,7 +493,7 @@ struct Server {
     Wal    wal;
     Socket sock;
 
-    // Connections that must produce deadline or timeout, ordered by the time.
+    // 产生到期或者超时的连接链表
     Heap   conns;
 };
 void srv_acquire_wal(Server *s);

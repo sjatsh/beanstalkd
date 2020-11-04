@@ -240,7 +240,9 @@ static volatile sig_atomic_t drain_mode = 0;
 
 static int64 started_at;
 
-enum { instance_id_bytes = 8 };
+enum {
+    instance_id_bytes = 8
+};
 static char instance_hex[instance_id_bytes * 2 + 1]; // hex-encoded len of instance_id_bytes
 
 static struct utsname node_info;
@@ -249,33 +251,33 @@ static struct utsname node_info;
 // in the event notification mechanism.
 static Conn *epollq;
 
-static const char * op_names[] = {
-    "<unknown>",
-    CMD_PUT,
-    CMD_PEEKJOB,
-    CMD_RESERVE,
-    CMD_DELETE,
-    CMD_RELEASE,
-    CMD_BURY,
-    CMD_KICK,
-    CMD_STATS,
-    CMD_STATSJOB,
-    CMD_PEEK_BURIED,
-    CMD_USE,
-    CMD_WATCH,
-    CMD_IGNORE,
-    CMD_LIST_TUBES,
-    CMD_LIST_TUBE_USED,
-    CMD_LIST_TUBES_WATCHED,
-    CMD_STATS_TUBE,
-    CMD_PEEK_READY,
-    CMD_PEEK_DELAYED,
-    CMD_RESERVE_TIMEOUT,
-    CMD_TOUCH,
-    CMD_QUIT,
-    CMD_PAUSE_TUBE,
-    CMD_KICKJOB,
-    CMD_RESERVE_JOB,
+static const char *op_names[] = {
+        "<unknown>",
+        CMD_PUT,
+        CMD_PEEKJOB,
+        CMD_RESERVE,
+        CMD_DELETE,
+        CMD_RELEASE,
+        CMD_BURY,
+        CMD_KICK,
+        CMD_STATS,
+        CMD_STATSJOB,
+        CMD_PEEK_BURIED,
+        CMD_USE,
+        CMD_WATCH,
+        CMD_IGNORE,
+        CMD_LIST_TUBES,
+        CMD_LIST_TUBE_USED,
+        CMD_LIST_TUBES_WATCHED,
+        CMD_STATS_TUBE,
+        CMD_PEEK_READY,
+        CMD_PEEK_DELAYED,
+        CMD_RESERVE_TIMEOUT,
+        CMD_TOUCH,
+        CMD_QUIT,
+        CMD_PAUSE_TUBE,
+        CMD_KICKJOB,
+        CMD_RESERVE_JOB,
 };
 
 static Job *remove_buried_job(Job *j);
@@ -293,8 +295,7 @@ epollq_add(Conn *c, char rw) {
 
 // epollq_rmconn removes connection c from the epollq.
 static void
-epollq_rmconn(Conn *c)
-{
+epollq_rmconn(Conn *c) {
     Conn *x, *newhead = NULL;
 
     while (epollq) {
@@ -314,9 +315,9 @@ epollq_rmconn(Conn *c)
 
 // Propagate changes to event notification mechanism about expected operations
 // in connections' sockets. Clear the epollq list.
+// 把epoolq队列中所有coon的fd以及对事件放入epoll
 static void
-epollq_apply()
-{
+epollq_apply() {
     Conn *c;
 
     while (epollq) {
@@ -338,8 +339,7 @@ epollq_apply()
     (twarnx("server error: %s", (e)), reply_msg((c), (e)))
 
 static void
-reply(Conn *c, char *line, int len, int state)
-{
+reply(Conn *c, char *line, int len, int state) {
     if (!c)
         return;
 
@@ -350,19 +350,18 @@ reply(Conn *c, char *line, int len, int state)
     c->reply_sent = 0;
     c->state = state;
     if (verbose >= 2) {
-        printf(">%d reply %.*s\n", c->sock.fd, len-2, line);
+        printf(">%d reply %.*s\n", c->sock.fd, len - 2, line);
     }
 }
 
 static void
-reply_line(Conn*, int, const char*, ...)
+reply_line(Conn *, int, const char *, ...)
 __attribute__((format(printf, 3, 4)));
 
 // reply_line prints *fmt into c->reply_buffer and
 // calls reply() for the string and state.
 static void
-reply_line(Conn *c, int state, const char *fmt, ...)
-{
+reply_line(Conn *c, int state, const char *fmt, ...) {
     int r;
     va_list ap;
 
@@ -382,20 +381,20 @@ reply_line(Conn *c, int state, const char *fmt, ...)
 // reply_job tells the connection c which job to send,
 // and replies with this line: <msg> <job_id> <job_size>.
 static void
-reply_job(Conn *c, Job *j, const char *msg)
-{
+reply_job(Conn *c, Job *j, const char *msg) {
     c->out_job = j;
     c->out_job_sent = 0;
-    reply_line(c, STATE_SEND_JOB, "%s %"PRIu64" %u\r\n",
-               msg, j->r.id, j->r.body_size - 2);
+    reply_line(c, STATE_SEND_JOB, "%s %"
+    PRIu64
+    " %u\r\n",
+            msg, j->r.id, j->r.body_size - 2);
 }
 
 // remove_waiting_conn unsets CONN_TYPE_WAITING for the connection,
 // removes it from the waiting_conns set of every tube it's watching.
 // Noop if connection is not waiting.
 void
-remove_waiting_conn(Conn *c)
-{
+remove_waiting_conn(Conn *c) {
     if (!conn_waiting(c))
         return;
 
@@ -412,8 +411,7 @@ remove_waiting_conn(Conn *c)
 // enqueue_waiting_conn sets CONN_TYPE_WAITING for the connection,
 // adds it to the waiting_conns set of every tube it's watching.
 static void
-enqueue_waiting_conn(Conn *c)
-{
+enqueue_waiting_conn(Conn *c) {
     c->type |= CONN_TYPE_WAITING;
     global_stat.waiting_ct++;
     size_t i;
@@ -429,16 +427,18 @@ enqueue_waiting_conn(Conn *c)
 // If jobs has the same priority it picks the job with smaller id.
 // All tubes with expired pause are unpaused.
 static Job *
-next_awaited_job(int64 now)
-{
+next_awaited_job(int64 now) {
     size_t i;
     Job *j = NULL;
 
+    // 遍历找出所有tubes中所有等待队列中优先级最高的job
     for (i = 0; i < tubes.len; i++) {
         Tube *t = tubes.items[i];
         if (t->pause) {
+            // 还没到解除暂停时间
             if (t->unpause_at > now)
                 continue;
+            // 解除暂停
             t->pause = 0;
         }
         if (t->waiting_conns.len && t->ready.len) {
@@ -453,11 +453,11 @@ next_awaited_job(int64 now)
 
 // process_queue performs reservation for every jobs that is awaited for.
 static void
-process_queue()
-{
+process_queue() {
     Job *j = NULL;
     int64 now = nanoseconds();
 
+    // 找出所有定时到期的job 并进行回复
     while ((j = next_awaited_job(now))) {
         heapremove(&j->tube->ready, j->heap_index);
         ready_ct--;
@@ -482,8 +482,7 @@ process_queue()
 // soonest_delayed_job returns the delayed job
 // with the smallest deadline_at among all tubes.
 static Job *
-soonest_delayed_job()
-{
+soonest_delayed_job() {
     Job *j = NULL;
     size_t i;
 
@@ -504,18 +503,19 @@ soonest_delayed_job()
 // On success it processes the queue.
 // BUG: If maintenance of WAL has failed, it is not reported as error.
 static int
-enqueue_job(Server *s, Job *j, int64 delay, char update_store)
-{
+enqueue_job(Server *s, Job *j, int64 delay, char update_store) {
     int r;
 
     j->reserver = NULL;
     if (delay) {
         j->r.deadline_at = nanoseconds() + delay;
+        // 加入到tube对应delay队列
         r = heapinsert(&j->tube->delay, j);
         if (!r)
             return 0;
         j->r.state = Delayed;
     } else {
+        // 加入到tube对应ready队列
         r = heapinsert(&j->tube->ready, j);
         if (!r)
             return 0;
@@ -528,21 +528,21 @@ enqueue_job(Server *s, Job *j, int64 delay, char update_store)
     }
 
     if (update_store) {
+        // job写入binlog
         if (!walwrite(&s->wal, j)) {
             return 0;
         }
+        // 文件拆分&文件fsync
         walmaint(&s->wal);
     }
 
-    // The call below makes this function do too much.
-    // TODO: refactor this call outside so the call is explicit (not hidden)?
+    // 找出所有ready job并回复
     process_queue();
     return 1;
 }
 
 static int
-bury_job(Server *s, Job *j, char update_store)
-{
+bury_job(Server *s, Job *j, char update_store) {
     if (update_store) {
         int z = walresvupdate(&s->wal);
         if (!z)
@@ -568,8 +568,7 @@ bury_job(Server *s, Job *j, char update_store)
 }
 
 void
-enqueue_reserved_jobs(Conn *c)
-{
+enqueue_reserved_jobs(Conn *c) {
     while (!job_list_is_empty(&c->reserved_jobs)) {
         Job *j = job_list_remove(c->reserved_jobs.next);
         int r = enqueue_job(c->srv, j, 0, 0);
@@ -582,8 +581,7 @@ enqueue_reserved_jobs(Conn *c)
 }
 
 static int
-kick_buried_job(Server *s, Job *j)
-{
+kick_buried_job(Server *s, Job *j) {
     int r;
     int z;
 
@@ -605,8 +603,7 @@ kick_buried_job(Server *s, Job *j)
 }
 
 static uint
-get_delayed_job_ct()
-{
+get_delayed_job_ct() {
     size_t i;
     uint count = 0;
 
@@ -618,8 +615,7 @@ get_delayed_job_ct()
 }
 
 static int
-kick_delayed_job(Server *s, Job *j)
-{
+kick_delayed_job(Server *s, Job *j) {
     int r;
     int z;
 
@@ -646,16 +642,14 @@ kick_delayed_job(Server *s, Job *j)
 }
 
 static int
-buried_job_p(Tube *t)
-{
+buried_job_p(Tube *t) {
     // this function does not do much. inline?
     return !job_list_is_empty(&t->buried);
 }
 
 /* return the number of jobs successfully kicked */
 static uint
-kick_buried_jobs(Server *s, Tube *t, uint n)
-{
+kick_buried_jobs(Server *s, Tube *t, uint n) {
     uint i;
     for (i = 0; (i < n) && buried_job_p(t); ++i) {
         kick_buried_job(s, t->buried.next);
@@ -665,18 +659,16 @@ kick_buried_jobs(Server *s, Tube *t, uint n)
 
 /* return the number of jobs successfully kicked */
 static uint
-kick_delayed_jobs(Server *s, Tube *t, uint n)
-{
+kick_delayed_jobs(Server *s, Tube *t, uint n) {
     uint i;
     for (i = 0; (i < n) && (t->delay.len > 0); ++i) {
-        kick_delayed_job(s, (Job *)t->delay.data[0]);
+        kick_delayed_job(s, (Job *) t->delay.data[0]);
     }
     return i;
 }
 
 static uint
-kick_jobs(Server *s, Tube *t, uint n)
-{
+kick_jobs(Server *s, Tube *t, uint n) {
     if (buried_job_p(t))
         return kick_buried_jobs(s, t, n);
     return kick_delayed_jobs(s, t, n);
@@ -685,8 +677,7 @@ kick_jobs(Server *s, Tube *t, uint n)
 // remove_buried_job returns non-NULL value if job j was in the buried state.
 // It excludes the job from the buried list and updates counters.
 static Job *
-remove_buried_job(Job *j)
-{
+remove_buried_job(Job *j) {
     if (!j || j->r.state != Buried)
         return NULL;
     j = job_list_remove(j);
@@ -700,8 +691,7 @@ remove_buried_job(Job *j)
 // remove_delayed_job returns non-NULL value if job j was in the delayed state.
 // It removes the job from the tube delayed heap.
 static Job *
-remove_delayed_job(Job *j)
-{
+remove_delayed_job(Job *j) {
     if (!j || j->r.state != Delayed)
         return NULL;
     heapremove(&j->tube->delay, j->heap_index);
@@ -712,8 +702,7 @@ remove_delayed_job(Job *j)
 // remove_ready_job returns non-NULL value if job j was in the ready state.
 // It removes the job from the tube ready heap and updates counters.
 static Job *
-remove_ready_job(Job *j)
-{
+remove_ready_job(Job *j) {
     if (!j || j->r.state != Ready)
         return NULL;
     heapremove(&j->tube->ready, j->heap_index);
@@ -726,14 +715,12 @@ remove_ready_job(Job *j)
 }
 
 static bool
-is_job_reserved_by_conn(Conn *c, Job *j)
-{
+is_job_reserved_by_conn(Conn *c, Job *j) {
     return j && j->reserver == c && j->r.state == Reserved;
 }
 
 static bool
-touch_job(Conn *c, Job *j)
-{
+touch_job(Conn *c, Job *j) {
     if (is_job_reserved_by_conn(c, j)) {
         j->r.deadline_at = nanoseconds() + j->r.ttr;
         c->soonest_job = NULL;
@@ -743,8 +730,7 @@ touch_job(Conn *c, Job *j)
 }
 
 static void
-check_err(Conn *c, const char *s)
-{
+check_err(Conn *c, const char *s) {
     if (errno == EAGAIN)
         return;
     if (errno == EINTR)
@@ -759,8 +745,7 @@ check_err(Conn *c, const char *s)
 /* Scan the given string for the sequence "\r\n" and return the line length.
  * Always returns at least 2 if a match is found. Returns 0 if no match. */
 static size_t
-scan_line_end(const char *s, int size)
-{
+scan_line_end(const char *s, int size) {
     char *match;
 
     match = memchr(s, '\r', size - 1);
@@ -776,9 +761,8 @@ scan_line_end(const char *s, int size)
 
 /* parse the command line */
 static int
-which_cmd(Conn *c)
-{
-#define TEST_CMD(s,c,o) if (strncmp((s), (c), CONSTSTRLEN(c)) == 0) return (o);
+which_cmd(Conn *c) {
+#define TEST_CMD(s, c, o) if (strncmp((s), (c), CONSTSTRLEN(c)) == 0) return (o);
     TEST_CMD(c->cmd, CMD_PUT, OP_PUT);
     TEST_CMD(c->cmd, CMD_PEEKJOB, OP_PEEKJOB);
     TEST_CMD(c->cmd, CMD_PEEK_READY, OP_PEEK_READY);
@@ -811,8 +795,7 @@ which_cmd(Conn *c)
  * buffer. If c->in_job exists, this assumes that c->in_job->body is empty.
  * This function is idempotent(). */
 static void
-fill_extra_data(Conn *c)
-{
+fill_extra_data(Conn *c) {
     if (!c->sock.fd)
         return; /* the connection was closed */
     if (!c->cmd_len)
@@ -840,11 +823,10 @@ fill_extra_data(Conn *c)
     c->cmd_len = 0; /* we no longer know the length of the new command */
 }
 
-#define skip(conn,n,msg) (_skip(conn, n, msg, CONSTSTRLEN(msg)))
+#define skip(conn, n, msg) (_skip(conn, n, msg, CONSTSTRLEN(msg)))
 
 static void
-_skip(Conn *c, int64 n, char *msg, int msglen)
-{
+_skip(Conn *c, int64 n, char *msg, int msglen) {
     /* Invert the meaning of in_job_read while throwing away data -- it
      * counts the bytes that remain to be thrown away. */
     c->in_job = 0;
@@ -863,8 +845,7 @@ _skip(Conn *c, int64 n, char *msg, int msglen)
 }
 
 static void
-enqueue_incoming_job(Conn *c)
-{
+enqueue_incoming_job(Conn *c) {
     int r;
     Job *j = c->in_job;
 
@@ -879,7 +860,9 @@ enqueue_incoming_job(Conn *c)
     }
 
     if (verbose >= 2) {
-        printf("<%d job %"PRIu64"\n", c->sock.fd, j->r.id);
+        printf("<%d job %"
+        PRIu64
+        "\n", c->sock.fd, j->r.id);
     }
 
     if (drain_mode) {
@@ -921,14 +904,12 @@ enqueue_incoming_job(Conn *c)
 }
 
 static uint
-uptime()
-{
+uptime() {
     return (nanoseconds() - started_at) / 1000000000;
 }
 
 static int
-fmt_stats(char *buf, size_t size, void *x)
-{
+fmt_stats(char *buf, size_t size, void *x) {
     int whead = 0, wcur = 0;
     Server *s = x;
     struct rusage ru;
@@ -945,57 +926,57 @@ fmt_stats(char *buf, size_t size, void *x)
 
     getrusage(RUSAGE_SELF, &ru); /* don't care if it fails */
     return snprintf(buf, size, STATS_FMT,
-                    global_stat.urgent_ct,
-                    ready_ct,
-                    global_stat.reserved_ct,
-                    get_delayed_job_ct(),
-                    global_stat.buried_ct,
-                    op_ct[OP_PUT],
-                    op_ct[OP_PEEKJOB],
-                    op_ct[OP_PEEK_READY],
-                    op_ct[OP_PEEK_DELAYED],
-                    op_ct[OP_PEEK_BURIED],
-                    op_ct[OP_RESERVE],
-                    op_ct[OP_RESERVE_TIMEOUT],
-                    op_ct[OP_DELETE],
-                    op_ct[OP_RELEASE],
-                    op_ct[OP_USE],
-                    op_ct[OP_WATCH],
-                    op_ct[OP_IGNORE],
-                    op_ct[OP_BURY],
-                    op_ct[OP_KICK],
-                    op_ct[OP_TOUCH],
-                    op_ct[OP_STATS],
-                    op_ct[OP_STATSJOB],
-                    op_ct[OP_STATS_TUBE],
-                    op_ct[OP_LIST_TUBES],
-                    op_ct[OP_LIST_TUBE_USED],
-                    op_ct[OP_LIST_TUBES_WATCHED],
-                    op_ct[OP_PAUSE_TUBE],
-                    timeout_ct,
-                    global_stat.total_jobs_ct,
-                    job_data_size_limit,
-                    tubes.len,
-                    count_cur_conns(),
-                    count_cur_producers(),
-                    count_cur_workers(),
-                    global_stat.waiting_ct,
-                    count_tot_conns(),
-                    (long) getpid(),
-                    version,
-                    (int) ru.ru_utime.tv_sec, (int) ru.ru_utime.tv_usec,
-                    (int) ru.ru_stime.tv_sec, (int) ru.ru_stime.tv_usec,
-                    uptime(),
-                    whead,
-                    wcur,
-                    s->wal.nmig,
-                    s->wal.nrec,
-                    s->wal.filesize,
-                    drain_mode ? "true" : "false",
-                    instance_hex,
-                    node_info.nodename,
-                    node_info.version,
-                    node_info.machine);
+            global_stat.urgent_ct,
+            ready_ct,
+            global_stat.reserved_ct,
+            get_delayed_job_ct(),
+            global_stat.buried_ct,
+            op_ct[OP_PUT],
+            op_ct[OP_PEEKJOB],
+            op_ct[OP_PEEK_READY],
+            op_ct[OP_PEEK_DELAYED],
+            op_ct[OP_PEEK_BURIED],
+            op_ct[OP_RESERVE],
+            op_ct[OP_RESERVE_TIMEOUT],
+            op_ct[OP_DELETE],
+            op_ct[OP_RELEASE],
+            op_ct[OP_USE],
+            op_ct[OP_WATCH],
+            op_ct[OP_IGNORE],
+            op_ct[OP_BURY],
+            op_ct[OP_KICK],
+            op_ct[OP_TOUCH],
+            op_ct[OP_STATS],
+            op_ct[OP_STATSJOB],
+            op_ct[OP_STATS_TUBE],
+            op_ct[OP_LIST_TUBES],
+            op_ct[OP_LIST_TUBE_USED],
+            op_ct[OP_LIST_TUBES_WATCHED],
+            op_ct[OP_PAUSE_TUBE],
+            timeout_ct,
+            global_stat.total_jobs_ct,
+            job_data_size_limit,
+            tubes.len,
+            count_cur_conns(),
+            count_cur_producers(),
+            count_cur_workers(),
+            global_stat.waiting_ct,
+            count_tot_conns(),
+            (long) getpid(),
+            version,
+            (int) ru.ru_utime.tv_sec, (int) ru.ru_utime.tv_usec,
+            (int) ru.ru_stime.tv_sec, (int) ru.ru_stime.tv_usec,
+            uptime(),
+            whead,
+            wcur,
+            s->wal.nmig,
+            s->wal.nrec,
+            s->wal.filesize,
+            drain_mode ? "true" : "false",
+            instance_hex,
+            node_info.nodename,
+            node_info.version,
+            node_info.machine);
 }
 
 /* Read an integer from the given buffer and place it in num.
@@ -1009,8 +990,7 @@ fmt_stats(char *buf, size_t size, void *x)
  * Return 0 on success, or nonzero on failure.
  * If a failure occurs, num and end are not modified. */
 static int
-read_u64(uint64 *num, const char *buf, char **end)
-{
+read_u64(uint64 *num, const char *buf, char **end) {
     uintmax_t tnum;
     char *tend;
 
@@ -1029,15 +1009,14 @@ read_u64(uint64 *num, const char *buf, char **end)
     if (tnum > UINT64_MAX)
         return -1;
 
-    if (num) *num = (uint64)tnum;
+    if (num) *num = (uint64) tnum;
     if (end) *end = tend;
     return 0;
 }
 
 // Indentical to read_u64() but instead reads into uint32.
 static int
-read_u32(uint32 *num, const char *buf, char **end)
-{
+read_u32(uint32 *num, const char *buf, char **end) {
     uintmax_t tnum;
     char *tend;
 
@@ -1056,7 +1035,7 @@ read_u32(uint32 *num, const char *buf, char **end)
     if (tnum > UINT32_MAX)
         return -1;
 
-    if (num) *num = (uint32)tnum;
+    if (num) *num = (uint32) tnum;
     if (end) *end = tend;
     return 0;
 }
@@ -1065,8 +1044,7 @@ read_u32(uint32 *num, const char *buf, char **end)
    place it in duration in nanoseconds.
    The interface and behavior are analogous to read_u32(). */
 static int
-read_duration(int64 *duration, const char *buf, char **end)
-{
+read_duration(int64 *duration, const char *buf, char **end) {
     int r;
     uint32 dur_sec;
 
@@ -1079,8 +1057,7 @@ read_duration(int64 *duration, const char *buf, char **end)
 
 /* Read a tube name from the given buffer moving the buffer to the name start */
 static int
-read_tube_name(char **tubename, char *buf, char **end)
-{
+read_tube_name(char **tubename, char *buf, char **end) {
     size_t len;
 
     while (buf[0] == ' ')
@@ -1096,8 +1073,7 @@ read_tube_name(char **tubename, char *buf, char **end)
 }
 
 static void
-wait_for_job(Conn *c, int timeout)
-{
+wait_for_job(Conn *c, int timeout) {
     c->state = STATE_WAIT;
     enqueue_waiting_conn(c);
 
@@ -1111,8 +1087,7 @@ wait_for_job(Conn *c, int timeout)
 typedef int(*fmt_fn)(char *, size_t, void *);
 
 static void
-do_stats(Conn *c, fmt_fn fmt, void *data)
-{
+do_stats(Conn *c, fmt_fn fmt, void *data) {
     int r, stats_len;
 
     /* first, measure how big a buffer we will need */
@@ -1141,8 +1116,7 @@ do_stats(Conn *c, fmt_fn fmt, void *data)
 }
 
 static void
-do_list_tubes(Conn *c, Ms *l)
-{
+do_list_tubes(Conn *c, Ms *l) {
     char *buf;
     Tube *t;
     size_t i, resp_z;
@@ -1178,8 +1152,7 @@ do_list_tubes(Conn *c, Ms *l)
 }
 
 static int
-fmt_job_stats(char *buf, size_t size, Job *j)
-{
+fmt_job_stats(char *buf, size_t size, Job *j) {
     int64 t;
     int64 time_left;
     int file = 0;
@@ -1211,8 +1184,7 @@ fmt_job_stats(char *buf, size_t size, Job *j)
 }
 
 static int
-fmt_stats_tube(char *buf, size_t size, Tube *t)
-{
+fmt_stats_tube(char *buf, size_t size, Tube *t) {
     uint64 time_left;
 
     if (t->pause > 0) {
@@ -1238,8 +1210,7 @@ fmt_stats_tube(char *buf, size_t size, Tube *t)
 }
 
 static void
-maybe_enqueue_incoming_job(Conn *c)
-{
+maybe_enqueue_incoming_job(Conn *c) {
     Job *j = c->in_job;
 
     /* do we have a complete job? */
@@ -1254,8 +1225,7 @@ maybe_enqueue_incoming_job(Conn *c)
 
 /* j can be NULL */
 static Job *
-remove_this_reserved_job(Conn *c, Job *j)
-{
+remove_this_reserved_job(Conn *c, Job *j) {
     j = job_list_remove(j);
     if (j) {
         global_stat.reserved_ct--;
@@ -1267,25 +1237,22 @@ remove_this_reserved_job(Conn *c, Job *j)
 }
 
 static Job *
-remove_reserved_job(Conn *c, Job *j)
-{
+remove_reserved_job(Conn *c, Job *j) {
     if (!is_job_reserved_by_conn(c, j))
         return NULL;
     return remove_this_reserved_job(c, j);
 }
 
 static bool
-is_valid_tube(const char *name, size_t max)
-{
+is_valid_tube(const char *name, size_t max) {
     size_t len = strlen(name);
     return 0 < len && len <= max &&
-        strspn(name, NAME_CHARS) == len &&
-        name[0] != '-';
+           strspn(name, NAME_CHARS) == len &&
+           name[0] != '-';
 }
 
 static void
-dispatch_cmd(Conn *c)
-{
+dispatch_cmd(Conn *c) {
     int r, timeout = -1;
     uint i;
     uint count;
@@ -1313,545 +1280,553 @@ dispatch_cmd(Conn *c)
     }
 
     switch (type) {
-    case OP_PUT:
-        if (read_u32(&pri, c->cmd + 4, &delay_buf) ||
-            read_duration(&delay, delay_buf, &ttr_buf) ||
-            read_duration(&ttr, ttr_buf, &size_buf) ||
-            read_u32(&body_size, size_buf, &end_buf)) {
-            reply_msg(c, MSG_BAD_FORMAT);
+        case OP_PUT:
+            // 命令格式:
+            // put <pri> <delay> <ttr> <bytes>\r\n
+            //     <data>\r\n
+
+            // read_u32(&pri, c->cmd + 4, &delay_buf) 读取优先级 并返回 delay_buf 指针
+            // 依次读取 delay、ttr、body_size
+            if (read_u32(&pri, c->cmd + 4, &delay_buf) ||
+                read_duration(&delay, delay_buf, &ttr_buf) ||
+                read_duration(&ttr, ttr_buf, &size_buf) ||
+                read_u32(&body_size, size_buf, &end_buf)) {
+                reply_msg(c, MSG_BAD_FORMAT);
+                return;
+            }
+            // 统计数据
+            op_ct[type]++;
+
+            // body大小超过限制
+            if (body_size > job_data_size_limit) {
+                /* throw away the job body and respond with JOB_TOO_BIG */
+                skip(c, (int64) body_size + 2, MSG_JOB_TOO_BIG);
+                return;
+            }
+
+            /* don't allow trailing garbage */
+            if (end_buf[0] != '\0') {
+                reply_msg(c, MSG_BAD_FORMAT);
+                return;
+            }
+
+            connsetproducer(c);
+
+            if (ttr < 1000000000) {
+                ttr = 1000000000;
+            }
+
+            c->in_job = make_job(pri, delay, ttr, body_size + 2, c->use);
+
+            /* OOM? */
+            if (!c->in_job) {
+                /* throw away the job body and respond with OUT_OF_MEMORY */
+                twarnx("server error: " MSG_OUT_OF_MEMORY);
+                skip(c, body_size + 2, MSG_OUT_OF_MEMORY);
+                return;
+            }
+
+            fill_extra_data(c);
+
+            /* it's possible we already have a complete job */
+            maybe_enqueue_incoming_job(c);
             return;
-        }
-        op_ct[type]++;
 
-        if (body_size > job_data_size_limit) {
-            /* throw away the job body and respond with JOB_TOO_BIG */
-            skip(c, (int64)body_size + 2, MSG_JOB_TOO_BIG);
+        case OP_PEEK_READY:
+            /* don't allow trailing garbage */
+            if (c->cmd_len != CMD_PEEK_READY_LEN + 2) {
+                reply_msg(c, MSG_BAD_FORMAT);
+                return;
+            }
+            op_ct[type]++;
+
+            if (c->use->ready.len) {
+                j = job_copy(c->use->ready.data[0]);
+            }
+
+            if (!j) {
+                reply_msg(c, MSG_NOTFOUND);
+                return;
+            }
+            reply_job(c, j, MSG_FOUND);
             return;
-        }
 
-        /* don't allow trailing garbage */
-        if (end_buf[0] != '\0') {
-            reply_msg(c, MSG_BAD_FORMAT);
+        case OP_PEEK_DELAYED:
+            /* don't allow trailing garbage */
+            if (c->cmd_len != CMD_PEEK_DELAYED_LEN + 2) {
+                reply_msg(c, MSG_BAD_FORMAT);
+                return;
+            }
+            op_ct[type]++;
+
+            if (c->use->delay.len) {
+                j = job_copy(c->use->delay.data[0]);
+            }
+
+            if (!j) {
+                reply_msg(c, MSG_NOTFOUND);
+                return;
+            }
+            reply_job(c, j, MSG_FOUND);
             return;
-        }
 
-        connsetproducer(c);
+        case OP_PEEK_BURIED:
+            /* don't allow trailing garbage */
+            if (c->cmd_len != CMD_PEEK_BURIED_LEN + 2) {
+                reply_msg(c, MSG_BAD_FORMAT);
+                return;
+            }
+            op_ct[type]++;
 
-        if (ttr < 1000000000) {
-            ttr = 1000000000;
-        }
+            if (buried_job_p(c->use))
+                j = job_copy(c->use->buried.next);
+            else
+                j = NULL;
 
-        c->in_job = make_job(pri, delay, ttr, body_size + 2, c->use);
-
-        /* OOM? */
-        if (!c->in_job) {
-            /* throw away the job body and respond with OUT_OF_MEMORY */
-            twarnx("server error: " MSG_OUT_OF_MEMORY);
-            skip(c, body_size + 2, MSG_OUT_OF_MEMORY);
+            if (!j) {
+                reply_msg(c, MSG_NOTFOUND);
+                return;
+            }
+            reply_job(c, j, MSG_FOUND);
             return;
-        }
 
-        fill_extra_data(c);
+        case OP_PEEKJOB:
+            if (read_u64(&id, c->cmd + CMD_PEEKJOB_LEN, NULL)) {
+                reply_msg(c, MSG_BAD_FORMAT);
+                return;
+            }
+            op_ct[type]++;
 
-        /* it's possible we already have a complete job */
-        maybe_enqueue_incoming_job(c);
-        return;
+            /* So, peek is annoying, because some other connection might free the
+             * job while we are still trying to write it out. So we copy it and
+             * free the copy when it's done sending, in the "conn_want_command" function. */
+            j = job_copy(job_find(id));
 
-    case OP_PEEK_READY:
-        /* don't allow trailing garbage */
-        if (c->cmd_len != CMD_PEEK_READY_LEN + 2) {
-            reply_msg(c, MSG_BAD_FORMAT);
+            if (!j) {
+                reply_msg(c, MSG_NOTFOUND);
+                return;
+            }
+            reply_job(c, j, MSG_FOUND);
             return;
-        }
-        op_ct[type]++;
 
-        if (c->use->ready.len) {
-            j = job_copy(c->use->ready.data[0]);
-        }
+        case OP_RESERVE_TIMEOUT:
+            errno = 0;
+            timeout = strtol(c->cmd + CMD_RESERVE_TIMEOUT_LEN, &end_buf, 10);
+            if (errno) {
+                reply_msg(c, MSG_BAD_FORMAT);
+                return;
+            }
+            /* Falls through */
 
-        if (!j) {
-            reply_msg(c, MSG_NOTFOUND);
+        case OP_RESERVE:
+            /* don't allow trailing garbage */
+            if (type == OP_RESERVE && c->cmd_len != CMD_RESERVE_LEN + 2) {
+                reply_msg(c, MSG_BAD_FORMAT);
+                return;
+            }
+            op_ct[type]++;
+            connsetworker(c);
+
+            if (conndeadlinesoon(c) && !conn_ready(c)) {
+                reply_msg(c, MSG_DEADLINE_SOON);
+                return;
+            }
+
+            /* try to get a new job for this guy */
+            wait_for_job(c, timeout);
+            process_queue();
             return;
-        }
-        reply_job(c, j, MSG_FOUND);
-        return;
 
-    case OP_PEEK_DELAYED:
-        /* don't allow trailing garbage */
-        if (c->cmd_len != CMD_PEEK_DELAYED_LEN + 2) {
-            reply_msg(c, MSG_BAD_FORMAT);
+        case OP_RESERVE_JOB:
+            if (read_u64(&id, c->cmd + CMD_RESERVE_JOB_LEN, NULL)) {
+                reply_msg(c, MSG_BAD_FORMAT);
+                return;
+            }
+            op_ct[type]++;
+
+            // This command could produce "deadline soon" if
+            // the connection has a reservation about to expire.
+            // We choose not to do it, because this command does not block
+            // for an arbitrary amount of time as reserve and reserve-with-timeout.
+
+            j = job_find(id);
+            if (!j) {
+                reply_msg(c, MSG_NOTFOUND);
+                return;
+            }
+            // Check if this job is already reserved.
+            if (j->r.state == Reserved || j->r.state == Invalid) {
+                reply_msg(c, MSG_NOTFOUND);
+                return;
+            }
+
+            // Job can be in ready, buried or delayed states.
+            if (j->r.state == Ready) {
+                j = remove_ready_job(j);
+            } else if (j->r.state == Buried) {
+                j = remove_buried_job(j);
+            } else if (j->r.state == Delayed) {
+                j = remove_delayed_job(j);
+            } else {
+                reply_serr(c, MSG_INTERNAL_ERROR);
+                return;
+            }
+
+            connsetworker(c);
+            global_stat.reserved_ct++;
+
+            conn_reserve_job(c, j);
+            reply_job(c, j, MSG_RESERVED);
             return;
-        }
-        op_ct[type]++;
 
-        if (c->use->delay.len) {
-            j = job_copy(c->use->delay.data[0]);
-        }
+        case OP_DELETE:
+            if (read_u64(&id, c->cmd + CMD_DELETE_LEN, NULL)) {
+                reply_msg(c, MSG_BAD_FORMAT);
+                return;
+            }
+            op_ct[type]++;
 
-        if (!j) {
-            reply_msg(c, MSG_NOTFOUND);
+            {
+                Job *jf = job_find(id);
+                j = remove_reserved_job(c, jf);
+                if (!j)
+                    j = remove_ready_job(jf);
+                if (!j)
+                    j = remove_buried_job(jf);
+                if (!j)
+                    j = remove_delayed_job(jf);
+            }
+
+            if (!j) {
+                reply_msg(c, MSG_NOTFOUND);
+                return;
+            }
+
+            j->tube->stat.total_delete_ct++;
+
+            j->r.state = Invalid;
+            r = walwrite(&c->srv->wal, j);
+            walmaint(&c->srv->wal);
+            job_free(j);
+
+            if (!r) {
+                reply_serr(c, MSG_INTERNAL_ERROR);
+                return;
+            }
+            reply_msg(c, MSG_DELETED);
             return;
-        }
-        reply_job(c, j, MSG_FOUND);
-        return;
 
-    case OP_PEEK_BURIED:
-        /* don't allow trailing garbage */
-        if (c->cmd_len != CMD_PEEK_BURIED_LEN + 2) {
-            reply_msg(c, MSG_BAD_FORMAT);
+        case OP_RELEASE:
+            if (read_u64(&id, c->cmd + CMD_RELEASE_LEN, &pri_buf) ||
+                read_u32(&pri, pri_buf, &delay_buf) ||
+                read_duration(&delay, delay_buf, NULL)) {
+                reply_msg(c, MSG_BAD_FORMAT);
+                return;
+            }
+            op_ct[type]++;
+
+            j = remove_reserved_job(c, job_find(id));
+
+            if (!j) {
+                reply_msg(c, MSG_NOTFOUND);
+                return;
+            }
+
+            /* We want to update the delay deadline on disk, so reserve space for
+             * that. */
+            if (delay) {
+                int z = walresvupdate(&c->srv->wal);
+                if (!z) {
+                    reply_serr(c, MSG_OUT_OF_MEMORY);
+                    return;
+                }
+                j->walresv += z;
+            }
+
+            j->r.pri = pri;
+            j->r.delay = delay;
+            j->r.release_ct++;
+
+            r = enqueue_job(c->srv, j, delay, !!delay);
+            if (r < 0) {
+                reply_serr(c, MSG_INTERNAL_ERROR);
+                return;
+            }
+            if (r == 1) {
+                reply_msg(c, MSG_RELEASED);
+                return;
+            }
+
+            /* out of memory trying to grow the queue, so it gets buried */
+            bury_job(c->srv, j, 0);
+            reply_msg(c, MSG_BURIED);
             return;
-        }
-        op_ct[type]++;
 
-        if (buried_job_p(c->use))
-            j = job_copy(c->use->buried.next);
-        else
-            j = NULL;
+        case OP_BURY:
+            if (read_u64(&id, c->cmd + CMD_BURY_LEN, &pri_buf) ||
+                read_u32(&pri, pri_buf, NULL)) {
+                reply_msg(c, MSG_BAD_FORMAT);
+                return;
+            }
 
-        if (!j) {
-            reply_msg(c, MSG_NOTFOUND);
+            op_ct[type]++;
+
+            j = remove_reserved_job(c, job_find(id));
+
+            if (!j) {
+                reply_msg(c, MSG_NOTFOUND);
+                return;
+            }
+
+            j->r.pri = pri;
+            r = bury_job(c->srv, j, 1);
+            if (!r) {
+                reply_serr(c, MSG_INTERNAL_ERROR);
+                return;
+            }
+            reply_msg(c, MSG_BURIED);
             return;
-        }
-        reply_job(c, j, MSG_FOUND);
-        return;
 
-    case OP_PEEKJOB:
-        if (read_u64(&id, c->cmd + CMD_PEEKJOB_LEN, NULL)) {
-            reply_msg(c, MSG_BAD_FORMAT);
+        case OP_KICK:
+            errno = 0;
+            count = strtoul(c->cmd + CMD_KICK_LEN, &end_buf, 10);
+            if (end_buf == c->cmd + CMD_KICK_LEN || errno) {
+                reply_msg(c, MSG_BAD_FORMAT);
+                return;
+            }
+
+            op_ct[type]++;
+
+            i = kick_jobs(c->srv, c->use, count);
+            reply_line(c, STATE_SEND_WORD, "KICKED %u\r\n", i);
             return;
-        }
-        op_ct[type]++;
 
-        /* So, peek is annoying, because some other connection might free the
-         * job while we are still trying to write it out. So we copy it and
-         * free the copy when it's done sending, in the "conn_want_command" function. */
-        j = job_copy(job_find(id));
+        case OP_KICKJOB:
+            if (read_u64(&id, c->cmd + CMD_KICKJOB_LEN, NULL)) {
+                reply_msg(c, MSG_BAD_FORMAT);
+                return;
+            }
 
-        if (!j) {
-            reply_msg(c, MSG_NOTFOUND);
+            op_ct[type]++;
+
+            j = job_find(id);
+            if (!j) {
+                reply_msg(c, MSG_NOTFOUND);
+                return;
+            }
+
+            if ((j->r.state == Buried && kick_buried_job(c->srv, j)) ||
+                (j->r.state == Delayed && kick_delayed_job(c->srv, j))) {
+                reply_msg(c, MSG_KICKED);
+            } else {
+                reply_msg(c, MSG_NOTFOUND);
+            }
             return;
-        }
-        reply_job(c, j, MSG_FOUND);
-        return;
 
-    case OP_RESERVE_TIMEOUT:
-        errno = 0;
-        timeout = strtol(c->cmd + CMD_RESERVE_TIMEOUT_LEN, &end_buf, 10);
-        if (errno) {
-            reply_msg(c, MSG_BAD_FORMAT);
+        case OP_TOUCH:
+            if (read_u64(&id, c->cmd + CMD_TOUCH_LEN, NULL)) {
+                reply_msg(c, MSG_BAD_FORMAT);
+                return;
+            }
+            op_ct[type]++;
+
+            if (touch_job(c, job_find(id))) {
+                reply_msg(c, MSG_TOUCHED);
+            } else {
+                reply_msg(c, MSG_NOTFOUND);
+            }
             return;
-        }
-        /* Falls through */
 
-    case OP_RESERVE:
-        /* don't allow trailing garbage */
-        if (type == OP_RESERVE && c->cmd_len != CMD_RESERVE_LEN + 2) {
-            reply_msg(c, MSG_BAD_FORMAT);
+        case OP_STATS:
+            /* don't allow trailing garbage */
+            if (c->cmd_len != CMD_STATS_LEN + 2) {
+                reply_msg(c, MSG_BAD_FORMAT);
+                return;
+            }
+            op_ct[type]++;
+
+            do_stats(c, fmt_stats, c->srv);
             return;
-        }
-        op_ct[type]++;
-        connsetworker(c);
 
-        if (conndeadlinesoon(c) && !conn_ready(c)) {
-            reply_msg(c, MSG_DEADLINE_SOON);
+        case OP_STATSJOB:
+            if (read_u64(&id, c->cmd + CMD_STATSJOB_LEN, NULL)) {
+                reply_msg(c, MSG_BAD_FORMAT);
+                return;
+            }
+            op_ct[type]++;
+
+            j = job_find(id);
+            if (!j) {
+                reply_msg(c, MSG_NOTFOUND);
+                return;
+            }
+
+            if (!j->tube) {
+                reply_serr(c, MSG_INTERNAL_ERROR);
+                return;
+            }
+            do_stats(c, (fmt_fn) fmt_job_stats, j);
             return;
-        }
 
-        /* try to get a new job for this guy */
-        wait_for_job(c, timeout);
-        process_queue();
-        return;
+        case OP_STATS_TUBE:
+            name = c->cmd + CMD_STATS_TUBE_LEN;
+            if (!is_valid_tube(name, MAX_TUBE_NAME_LEN - 1)) {
+                reply_msg(c, MSG_BAD_FORMAT);
+                return;
+            }
+            op_ct[type]++;
 
-    case OP_RESERVE_JOB:
-        if (read_u64(&id, c->cmd + CMD_RESERVE_JOB_LEN, NULL)) {
-            reply_msg(c, MSG_BAD_FORMAT);
+            t = tube_find(name);
+            if (!t) {
+                reply_msg(c, MSG_NOTFOUND);
+                return;
+            }
+            do_stats(c, (fmt_fn) fmt_stats_tube, t);
+            t = NULL;
             return;
-        }
-        op_ct[type]++;
 
-        // This command could produce "deadline soon" if
-        // the connection has a reservation about to expire.
-        // We choose not to do it, because this command does not block
-        // for an arbitrary amount of time as reserve and reserve-with-timeout.
-
-        j = job_find(id);
-        if (!j) {
-            reply_msg(c, MSG_NOTFOUND);
+        case OP_LIST_TUBES:
+            /* don't allow trailing garbage */
+            if (c->cmd_len != CMD_LIST_TUBES_LEN + 2) {
+                reply_msg(c, MSG_BAD_FORMAT);
+                return;
+            }
+            op_ct[type]++;
+            do_list_tubes(c, &tubes);
             return;
-        }
-        // Check if this job is already reserved.
-        if (j->r.state == Reserved || j->r.state == Invalid) {
-            reply_msg(c, MSG_NOTFOUND);
+
+        case OP_LIST_TUBE_USED:
+            /* don't allow trailing garbage */
+            if (c->cmd_len != CMD_LIST_TUBE_USED_LEN + 2) {
+                reply_msg(c, MSG_BAD_FORMAT);
+                return;
+            }
+            op_ct[type]++;
+            reply_line(c, STATE_SEND_WORD, "USING %s\r\n", c->use->name);
             return;
-        }
 
-        // Job can be in ready, buried or delayed states.
-        if (j->r.state == Ready) {
-            j = remove_ready_job(j);
-        } else if (j->r.state == Buried) {
-            j = remove_buried_job(j);
-        } else if (j->r.state == Delayed) {
-            j = remove_delayed_job(j);
-        } else {
-            reply_serr(c, MSG_INTERNAL_ERROR);
+        case OP_LIST_TUBES_WATCHED:
+            /* don't allow trailing garbage */
+            if (c->cmd_len != CMD_LIST_TUBES_WATCHED_LEN + 2) {
+                reply_msg(c, MSG_BAD_FORMAT);
+                return;
+            }
+            op_ct[type]++;
+            do_list_tubes(c, &c->watch);
             return;
-        }
 
-        connsetworker(c);
-        global_stat.reserved_ct++;
+        case OP_USE:
+            name = c->cmd + CMD_USE_LEN;
+            if (!is_valid_tube(name, MAX_TUBE_NAME_LEN - 1)) {
+                reply_msg(c, MSG_BAD_FORMAT);
+                return;
+            }
+            op_ct[type]++;
 
-        conn_reserve_job(c, j);
-        reply_job(c, j, MSG_RESERVED);
-        return;
-
-    case OP_DELETE:
-        if (read_u64(&id, c->cmd + CMD_DELETE_LEN, NULL)) {
-            reply_msg(c, MSG_BAD_FORMAT);
-            return;
-        }
-        op_ct[type]++;
-
-        {
-            Job *jf = job_find(id);
-            j = remove_reserved_job(c, jf);
-            if (!j)
-                j = remove_ready_job(jf);
-            if (!j)
-                j = remove_buried_job(jf);
-            if (!j)
-                j = remove_delayed_job(jf);
-        }
-
-        if (!j) {
-            reply_msg(c, MSG_NOTFOUND);
-            return;
-        }
-
-        j->tube->stat.total_delete_ct++;
-
-        j->r.state = Invalid;
-        r = walwrite(&c->srv->wal, j);
-        walmaint(&c->srv->wal);
-        job_free(j);
-
-        if (!r) {
-            reply_serr(c, MSG_INTERNAL_ERROR);
-            return;
-        }
-        reply_msg(c, MSG_DELETED);
-        return;
-
-    case OP_RELEASE:
-        if (read_u64(&id, c->cmd + CMD_RELEASE_LEN, &pri_buf) ||
-            read_u32(&pri, pri_buf, &delay_buf) ||
-            read_duration(&delay, delay_buf, NULL)) {
-            reply_msg(c, MSG_BAD_FORMAT);
-            return;
-        }
-        op_ct[type]++;
-
-        j = remove_reserved_job(c, job_find(id));
-
-        if (!j) {
-            reply_msg(c, MSG_NOTFOUND);
-            return;
-        }
-
-        /* We want to update the delay deadline on disk, so reserve space for
-         * that. */
-        if (delay) {
-            int z = walresvupdate(&c->srv->wal);
-            if (!z) {
+            TUBE_ASSIGN(t, tube_find_or_make(name));
+            if (!t) {
                 reply_serr(c, MSG_OUT_OF_MEMORY);
                 return;
             }
-            j->walresv += z;
-        }
 
-        j->r.pri = pri;
-        j->r.delay = delay;
-        j->r.release_ct++;
+            c->use->using_ct--;
+            TUBE_ASSIGN(c->use, t);
+            TUBE_ASSIGN(t, NULL);
+            c->use->using_ct++;
 
-        r = enqueue_job(c->srv, j, delay, !!delay);
-        if (r < 0) {
-            reply_serr(c, MSG_INTERNAL_ERROR);
+            reply_line(c, STATE_SEND_WORD, "USING %s\r\n", c->use->name);
             return;
-        }
-        if (r == 1) {
-            reply_msg(c, MSG_RELEASED);
+
+        case OP_WATCH:
+            name = c->cmd + CMD_WATCH_LEN;
+            if (!is_valid_tube(name, MAX_TUBE_NAME_LEN - 1)) {
+                reply_msg(c, MSG_BAD_FORMAT);
+                return;
+            }
+            op_ct[type]++;
+
+            TUBE_ASSIGN(t, tube_find_or_make(name));
+            if (!t) {
+                reply_serr(c, MSG_OUT_OF_MEMORY);
+                return;
+            }
+
+            r = 1;
+            if (!ms_contains(&c->watch, t))
+                r = ms_append(&c->watch, t);
+            TUBE_ASSIGN(t, NULL);
+            if (!r) {
+                reply_serr(c, MSG_OUT_OF_MEMORY);
+                return;
+            }
+            reply_line(c, STATE_SEND_WORD, "WATCHING %zu\r\n", c->watch.len);
             return;
-        }
 
-        /* out of memory trying to grow the queue, so it gets buried */
-        bury_job(c->srv, j, 0);
-        reply_msg(c, MSG_BURIED);
-        return;
+        case OP_IGNORE:
+            name = c->cmd + CMD_IGNORE_LEN;
+            if (!is_valid_tube(name, MAX_TUBE_NAME_LEN - 1)) {
+                reply_msg(c, MSG_BAD_FORMAT);
+                return;
+            }
+            op_ct[type]++;
 
-    case OP_BURY:
-        if (read_u64(&id, c->cmd + CMD_BURY_LEN, &pri_buf) ||
-            read_u32(&pri, pri_buf, NULL)) {
-            reply_msg(c, MSG_BAD_FORMAT);
-            return;
-        }
-
-        op_ct[type]++;
-
-        j = remove_reserved_job(c, job_find(id));
-
-        if (!j) {
-            reply_msg(c, MSG_NOTFOUND);
-            return;
-        }
-
-        j->r.pri = pri;
-        r = bury_job(c->srv, j, 1);
-        if (!r) {
-            reply_serr(c, MSG_INTERNAL_ERROR);
-            return;
-        }
-        reply_msg(c, MSG_BURIED);
-        return;
-
-    case OP_KICK:
-        errno = 0;
-        count = strtoul(c->cmd + CMD_KICK_LEN, &end_buf, 10);
-        if (end_buf == c->cmd + CMD_KICK_LEN || errno) {
-            reply_msg(c, MSG_BAD_FORMAT);
-            return;
-        }
-
-        op_ct[type]++;
-
-        i = kick_jobs(c->srv, c->use, count);
-        reply_line(c, STATE_SEND_WORD, "KICKED %u\r\n", i);
-        return;
-
-    case OP_KICKJOB:
-        if (read_u64(&id, c->cmd + CMD_KICKJOB_LEN, NULL)) {
-            reply_msg(c, MSG_BAD_FORMAT);
-            return;
-        }
-
-        op_ct[type]++;
-
-        j = job_find(id);
-        if (!j) {
-            reply_msg(c, MSG_NOTFOUND);
-            return;
-        }
-
-        if ((j->r.state == Buried && kick_buried_job(c->srv, j)) ||
-            (j->r.state == Delayed && kick_delayed_job(c->srv, j))) {
-            reply_msg(c, MSG_KICKED);
-        } else {
-            reply_msg(c, MSG_NOTFOUND);
-        }
-        return;
-
-    case OP_TOUCH:
-        if (read_u64(&id, c->cmd + CMD_TOUCH_LEN, NULL)) {
-            reply_msg(c, MSG_BAD_FORMAT);
-            return;
-        }
-        op_ct[type]++;
-
-        if (touch_job(c, job_find(id))) {
-            reply_msg(c, MSG_TOUCHED);
-        } else {
-            reply_msg(c, MSG_NOTFOUND);
-        }
-        return;
-
-    case OP_STATS:
-        /* don't allow trailing garbage */
-        if (c->cmd_len != CMD_STATS_LEN + 2) {
-            reply_msg(c, MSG_BAD_FORMAT);
-            return;
-        }
-        op_ct[type]++;
-
-        do_stats(c, fmt_stats, c->srv);
-        return;
-
-    case OP_STATSJOB:
-        if (read_u64(&id, c->cmd + CMD_STATSJOB_LEN, NULL)) {
-            reply_msg(c, MSG_BAD_FORMAT);
-            return;
-        }
-        op_ct[type]++;
-
-        j = job_find(id);
-        if (!j) {
-            reply_msg(c, MSG_NOTFOUND);
-            return;
-        }
-
-        if (!j->tube) {
-            reply_serr(c, MSG_INTERNAL_ERROR);
-            return;
-        }
-        do_stats(c, (fmt_fn) fmt_job_stats, j);
-        return;
-
-    case OP_STATS_TUBE:
-        name = c->cmd + CMD_STATS_TUBE_LEN;
-        if (!is_valid_tube(name, MAX_TUBE_NAME_LEN - 1)) {
-            reply_msg(c, MSG_BAD_FORMAT);
-            return;
-        }
-        op_ct[type]++;
-
-        t = tube_find(name);
-        if (!t) {
-            reply_msg(c, MSG_NOTFOUND);
-            return;
-        }
-        do_stats(c, (fmt_fn) fmt_stats_tube, t);
-        t = NULL;
-        return;
-
-    case OP_LIST_TUBES:
-        /* don't allow trailing garbage */
-        if (c->cmd_len != CMD_LIST_TUBES_LEN + 2) {
-            reply_msg(c, MSG_BAD_FORMAT);
-            return;
-        }
-        op_ct[type]++;
-        do_list_tubes(c, &tubes);
-        return;
-
-    case OP_LIST_TUBE_USED:
-        /* don't allow trailing garbage */
-        if (c->cmd_len != CMD_LIST_TUBE_USED_LEN + 2) {
-            reply_msg(c, MSG_BAD_FORMAT);
-            return;
-        }
-        op_ct[type]++;
-        reply_line(c, STATE_SEND_WORD, "USING %s\r\n", c->use->name);
-        return;
-
-    case OP_LIST_TUBES_WATCHED:
-        /* don't allow trailing garbage */
-        if (c->cmd_len != CMD_LIST_TUBES_WATCHED_LEN + 2) {
-            reply_msg(c, MSG_BAD_FORMAT);
-            return;
-        }
-        op_ct[type]++;
-        do_list_tubes(c, &c->watch);
-        return;
-
-    case OP_USE:
-        name = c->cmd + CMD_USE_LEN;
-        if (!is_valid_tube(name, MAX_TUBE_NAME_LEN - 1)) {
-            reply_msg(c, MSG_BAD_FORMAT);
-            return;
-        }
-        op_ct[type]++;
-
-        TUBE_ASSIGN(t, tube_find_or_make(name));
-        if (!t) {
-            reply_serr(c, MSG_OUT_OF_MEMORY);
-            return;
-        }
-
-        c->use->using_ct--;
-        TUBE_ASSIGN(c->use, t);
-        TUBE_ASSIGN(t, NULL);
-        c->use->using_ct++;
-
-        reply_line(c, STATE_SEND_WORD, "USING %s\r\n", c->use->name);
-        return;
-
-    case OP_WATCH:
-        name = c->cmd + CMD_WATCH_LEN;
-        if (!is_valid_tube(name, MAX_TUBE_NAME_LEN - 1)) {
-            reply_msg(c, MSG_BAD_FORMAT);
-            return;
-        }
-        op_ct[type]++;
-
-        TUBE_ASSIGN(t, tube_find_or_make(name));
-        if (!t) {
-            reply_serr(c, MSG_OUT_OF_MEMORY);
-            return;
-        }
-
-        r = 1;
-        if (!ms_contains(&c->watch, t))
-            r = ms_append(&c->watch, t);
-        TUBE_ASSIGN(t, NULL);
-        if (!r) {
-            reply_serr(c, MSG_OUT_OF_MEMORY);
-            return;
-        }
-        reply_line(c, STATE_SEND_WORD, "WATCHING %zu\r\n", c->watch.len);
-        return;
-
-    case OP_IGNORE:
-        name = c->cmd + CMD_IGNORE_LEN;
-        if (!is_valid_tube(name, MAX_TUBE_NAME_LEN - 1)) {
-            reply_msg(c, MSG_BAD_FORMAT);
-            return;
-        }
-        op_ct[type]++;
-
-        t = NULL;
-        for (i = 0; i < c->watch.len; i++) {
-            t = c->watch.items[i];
-            if (strncmp(t->name, name, MAX_TUBE_NAME_LEN) == 0)
-                break;
             t = NULL;
-        }
+            for (i = 0; i < c->watch.len; i++) {
+                t = c->watch.items[i];
+                if (strncmp(t->name, name, MAX_TUBE_NAME_LEN) == 0)
+                    break;
+                t = NULL;
+            }
 
-        if (t && c->watch.len < 2) {
-            reply_msg(c, MSG_NOT_IGNORED);
+            if (t && c->watch.len < 2) {
+                reply_msg(c, MSG_NOT_IGNORED);
+                return;
+            }
+
+            if (t)
+                ms_remove(&c->watch, t); /* may free t if refcount => 0 */
+            t = NULL;
+            reply_line(c, STATE_SEND_WORD, "WATCHING %zu\r\n", c->watch.len);
             return;
-        }
 
-        if (t)
-            ms_remove(&c->watch, t); /* may free t if refcount => 0 */
-        t = NULL;
-        reply_line(c, STATE_SEND_WORD, "WATCHING %zu\r\n", c->watch.len);
-        return;
-
-    case OP_QUIT:
-        c->state = STATE_CLOSE;
-        return;
-
-    case OP_PAUSE_TUBE:
-        if (read_tube_name(&name, c->cmd + CMD_PAUSE_TUBE_LEN, &delay_buf) ||
-            read_duration(&delay, delay_buf, NULL)) {
-            reply_msg(c, MSG_BAD_FORMAT);
+        case OP_QUIT:
+            c->state = STATE_CLOSE;
             return;
-        }
-        op_ct[type]++;
 
-        *delay_buf = '\0';
-        if (!is_valid_tube(name, MAX_TUBE_NAME_LEN - 1)) {
-            reply_msg(c, MSG_BAD_FORMAT);
+        case OP_PAUSE_TUBE:
+            if (read_tube_name(&name, c->cmd + CMD_PAUSE_TUBE_LEN, &delay_buf) ||
+                read_duration(&delay, delay_buf, NULL)) {
+                reply_msg(c, MSG_BAD_FORMAT);
+                return;
+            }
+            op_ct[type]++;
+
+            *delay_buf = '\0';
+            if (!is_valid_tube(name, MAX_TUBE_NAME_LEN - 1)) {
+                reply_msg(c, MSG_BAD_FORMAT);
+                return;
+            }
+            t = tube_find(name);
+            if (!t) {
+                reply_msg(c, MSG_NOTFOUND);
+                return;
+            }
+
+            // Always pause for a positive amount of time, to make sure
+            // that waiting clients wake up when the deadline arrives.
+            if (delay == 0) {
+                delay = 1;
+            }
+
+            t->unpause_at = nanoseconds() + delay;
+            t->pause = delay;
+            t->stat.pause_ct++;
+
+            reply_line(c, STATE_SEND_WORD, "PAUSED\r\n");
             return;
-        }
-        t = tube_find(name);
-        if (!t) {
-            reply_msg(c, MSG_NOTFOUND);
-            return;
-        }
 
-        // Always pause for a positive amount of time, to make sure
-        // that waiting clients wake up when the deadline arrives.
-        if (delay == 0) {
-            delay = 1;
-        }
-
-        t->unpause_at = nanoseconds() + delay;
-        t->pause = delay;
-        t->stat.pause_ct++;
-
-        reply_line(c, STATE_SEND_WORD, "PAUSED\r\n");
-        return;
-
-    default:
-        reply_msg(c, MSG_UNKNOWN_COMMAND);
+        default:
+            reply_msg(c, MSG_UNKNOWN_COMMAND);
     }
 }
 
@@ -1864,8 +1839,7 @@ dispatch_cmd(Conn *c)
  *
  * If any of these happen, we must do the appropriate thing. */
 static void
-conn_timeout(Conn *c)
-{
+conn_timeout(Conn *c) {
     int should_timeout = 0;
     Job *j;
 
@@ -1906,15 +1880,13 @@ conn_timeout(Conn *c)
 }
 
 void
-enter_drain_mode(int sig)
-{
+enter_drain_mode(int sig) {
     UNUSED_PARAMETER(sig);
     drain_mode = 1;
 }
 
 static void
-conn_want_command(Conn *c)
-{
+conn_want_command(Conn *c) {
     epollq_add(c, 'r');
 
     /* was this a peek or stats command? */
@@ -1927,183 +1899,191 @@ conn_want_command(Conn *c)
 }
 
 static void
-conn_process_io(Conn *c)
-{
+conn_process_io(Conn *c) {
     int r;
     int64 to_read;
     Job *j;
     struct iovec iov[2];
 
     switch (c->state) {
-    case STATE_WANT_COMMAND:
-        r = read(c->sock.fd, c->cmd + c->cmd_read, LINE_BUF_SIZE - c->cmd_read);
-        if (r == -1) {
-            check_err(c, "read()");
-            return;
-        }
-        if (r == 0) {
-            c->state = STATE_CLOSE;
-            return;
-        }
-
-        c->cmd_read += r;
-        c->cmd_len = scan_line_end(c->cmd, c->cmd_read);
-        if (c->cmd_len) {
-            // We found complete command line. Bail out to h_conn.
-            return;
-        }
-
-        // c->cmd_read > LINE_BUF_SIZE can't happen
-
-        if (c->cmd_read == LINE_BUF_SIZE) {
-            // Command line too long.
-            // Put connection into special state that discards
-            // the command line until the end line is found.
-            c->cmd_read = 0; // discard the input so far
-            c->state = STATE_WANT_ENDLINE;
-        }
-        // We have an incomplete line, so just keep waiting.
-        return;
-
-    case STATE_WANT_ENDLINE:
-        r = read(c->sock.fd, c->cmd + c->cmd_read, LINE_BUF_SIZE - c->cmd_read);
-        if (r == -1) {
-            check_err(c, "read()");
-            return;
-        }
-        if (r == 0) {
-            c->state = STATE_CLOSE;
-            return;
-        }
-
-        c->cmd_read += r;
-        c->cmd_len = scan_line_end(c->cmd, c->cmd_read);
-        if (c->cmd_len) {
-            // Found the EOL. Reply and reuse whatever was read afer the EOL.
-            reply_msg(c, MSG_BAD_FORMAT);
-            fill_extra_data(c);
-            return;
-        }
-
-        // c->cmd_read > LINE_BUF_SIZE can't happen
-
-        if (c->cmd_read == LINE_BUF_SIZE) {
-            // Keep discarding the input since no EOL was found.
-            c->cmd_read = 0;
-        }
-        return;
-
-    case STATE_BITBUCKET: {
-        /* Invert the meaning of in_job_read while throwing away data -- it
-         * counts the bytes that remain to be thrown away. */
-        static char bucket[BUCKET_BUF_SIZE];
-        to_read = min(c->in_job_read, BUCKET_BUF_SIZE);
-        r = read(c->sock.fd, bucket, to_read);
-        if (r == -1) {
-            check_err(c, "read()");
-            return;
-        }
-        if (r == 0) {
-            c->state = STATE_CLOSE;
-            return;
-        }
-
-        c->in_job_read -= r; /* we got some bytes */
-
-        /* (c->in_job_read < 0) can't happen */
-
-        if (c->in_job_read == 0) {
-            reply(c, c->reply, c->reply_len, STATE_SEND_WORD);
-        }
-        return;
-    }
-    case STATE_WANT_DATA:
-        j = c->in_job;
-
-        r = read(c->sock.fd, j->body + c->in_job_read, j->r.body_size -c->in_job_read);
-        if (r == -1) {
-            check_err(c, "read()");
-            return;
-        }
-        if (r == 0) {
-            c->state = STATE_CLOSE;
-            return;
-        }
-
-        c->in_job_read += r; /* we got some bytes */
-
-        /* (j->in_job_read > j->r.body_size) can't happen */
-
-        maybe_enqueue_incoming_job(c);
-        return;
-    case STATE_SEND_WORD:
-        r= write(c->sock.fd, c->reply + c->reply_sent, c->reply_len - c->reply_sent);
-        if (r == -1) {
-            check_err(c, "write()");
-            return;
-        }
-        if (r == 0) {
-            c->state = STATE_CLOSE;
-            return;
-        }
-
-        c->reply_sent += r; /* we got some bytes */
-
-        /* (c->reply_sent > c->reply_len) can't happen */
-
-        if (c->reply_sent == c->reply_len) {
-            conn_want_command(c);
-            return;
-        }
-
-        /* otherwise we sent an incomplete reply, so just keep waiting */
-        break;
-    case STATE_SEND_JOB:
-        j = c->out_job;
-
-        iov[0].iov_base = (void *)(c->reply + c->reply_sent);
-        iov[0].iov_len = c->reply_len - c->reply_sent; /* maybe 0 */
-        iov[1].iov_base = j->body + c->out_job_sent;
-        iov[1].iov_len = j->r.body_size - c->out_job_sent;
-
-        r = writev(c->sock.fd, iov, 2);
-        if (r == -1) {
-            check_err(c, "writev()");
-            return;
-        }
-        if (r == 0) {
-            c->state = STATE_CLOSE;
-            return;
-        }
-
-        /* update the sent values */
-        c->reply_sent += r;
-        if (c->reply_sent >= c->reply_len) {
-            c->out_job_sent += c->reply_sent - c->reply_len;
-            c->reply_sent = c->reply_len;
-        }
-
-        /* (c->out_job_sent > j->r.body_size) can't happen */
-
-        /* are we done? */
-        if (c->out_job_sent == j->r.body_size) {
-            if (verbose >= 2) {
-                printf(">%d job %"PRIu64"\n", c->sock.fd, j->r.id);
+        // 等待命令
+        case STATE_WANT_COMMAND:
+            // 命令读取
+            r = read(c->sock.fd, c->cmd + c->cmd_read, LINE_BUF_SIZE - c->cmd_read);
+            if (r == -1) {
+                check_err(c, "read()");
+                return;
             }
-            conn_want_command(c);
-            return;
-        }
+            if (r == 0) {
+                c->state = STATE_CLOSE;
+                return;
+            }
 
-        /* otherwise we sent incomplete data, so just keep waiting */
-        break;
-    case STATE_WAIT:
-        if (c->halfclosed) {
-            c->pending_timeout = -1;
-            remove_waiting_conn(c);
-            reply_msg(c, MSG_TIMED_OUT);
+            // 所有读取数据长度
+            c->cmd_read += r;
+            // 命令长度
+            c->cmd_len = scan_line_end(c->cmd, c->cmd_read);
+            if (c->cmd_len) {
+                // We found complete command line. Bail out to h_conn.
+                return;
+            }
+
+            // c->cmd_read > LINE_BUF_SIZE can't happen
+            // 判断命令长度超出限制
+            if (c->cmd_read == LINE_BUF_SIZE) {
+                // 清除读取命令长度和连接状态
+                // Command line too long.
+                // Put connection into special state that discards
+                // the command line until the end line is found.
+                c->cmd_read = 0; // discard the input so far
+                c->state = STATE_WANT_ENDLINE;
+            }
+            // We have an incomplete line, so just keep waiting.
+            return;
+
+            // 跳过当前命令直到命令结尾
+        case STATE_WANT_ENDLINE:
+            r = read(c->sock.fd, c->cmd + c->cmd_read, LINE_BUF_SIZE - c->cmd_read);
+            if (r == -1) {
+                check_err(c, "read()");
+                return;
+            }
+            if (r == 0) {
+                c->state = STATE_CLOSE;
+                return;
+            }
+
+            c->cmd_read += r;
+            c->cmd_len = scan_line_end(c->cmd, c->cmd_read);
+            if (c->cmd_len) {
+                // Found the EOL. Reply and reuse whatever was read afer the EOL.
+                reply_msg(c, MSG_BAD_FORMAT);
+                fill_extra_data(c);
+                return;
+            }
+
+            // c->cmd_read > LINE_BUF_SIZE can't happen
+
+            if (c->cmd_read == LINE_BUF_SIZE) {
+                // Keep discarding the input since no EOL was found.
+                c->cmd_read = 0;
+            }
+            return;
+
+            // 从连接中读取 in_job_read 字节 直接丢弃
+        case STATE_BITBUCKET: {
+            /* Invert the meaning of in_job_read while throwing away data -- it
+             * counts the bytes that remain to be thrown away. */
+            static char bucket[BUCKET_BUF_SIZE];
+            to_read = min(c->in_job_read, BUCKET_BUF_SIZE);
+            r = read(c->sock.fd, bucket, to_read);
+            if (r == -1) {
+                check_err(c, "read()");
+                return;
+            }
+            if (r == 0) {
+                c->state = STATE_CLOSE;
+                return;
+            }
+
+            c->in_job_read -= r; /* we got some bytes */
+
+            /* (c->in_job_read < 0) can't happen */
+
+            if (c->in_job_read == 0) {
+                reply(c, c->reply, c->reply_len, STATE_SEND_WORD);
+            }
             return;
         }
-        break;
+        case STATE_WANT_DATA:
+            j = c->in_job;
+
+            r = read(c->sock.fd, j->body + c->in_job_read, j->r.body_size - c->in_job_read);
+            if (r == -1) {
+                check_err(c, "read()");
+                return;
+            }
+            if (r == 0) {
+                c->state = STATE_CLOSE;
+                return;
+            }
+
+            c->in_job_read += r; /* we got some bytes */
+
+            /* (j->in_job_read > j->r.body_size) can't happen */
+
+            maybe_enqueue_incoming_job(c);
+            return;
+        case STATE_SEND_WORD:
+            r = write(c->sock.fd, c->reply + c->reply_sent, c->reply_len - c->reply_sent);
+            if (r == -1) {
+                check_err(c, "write()");
+                return;
+            }
+            if (r == 0) {
+                c->state = STATE_CLOSE;
+                return;
+            }
+
+            c->reply_sent += r; /* we got some bytes */
+
+            /* (c->reply_sent > c->reply_len) can't happen */
+
+            if (c->reply_sent == c->reply_len) {
+                conn_want_command(c);
+                return;
+            }
+
+            /* otherwise we sent an incomplete reply, so just keep waiting */
+            break;
+        case STATE_SEND_JOB:
+            j = c->out_job;
+
+            iov[0].iov_base = (void *) (c->reply + c->reply_sent);
+            iov[0].iov_len = c->reply_len - c->reply_sent; /* maybe 0 */
+            iov[1].iov_base = j->body + c->out_job_sent;
+            iov[1].iov_len = j->r.body_size - c->out_job_sent;
+
+            r = writev(c->sock.fd, iov, 2);
+            if (r == -1) {
+                check_err(c, "writev()");
+                return;
+            }
+            if (r == 0) {
+                c->state = STATE_CLOSE;
+                return;
+            }
+
+            /* update the sent values */
+            c->reply_sent += r;
+            if (c->reply_sent >= c->reply_len) {
+                c->out_job_sent += c->reply_sent - c->reply_len;
+                c->reply_sent = c->reply_len;
+            }
+
+            /* (c->out_job_sent > j->r.body_size) can't happen */
+
+            /* are we done? */
+            if (c->out_job_sent == j->r.body_size) {
+                if (verbose >= 2) {
+                    printf(">%d job %"
+                    PRIu64
+                    "\n", c->sock.fd, j->r.id);
+                }
+                conn_want_command(c);
+                return;
+            }
+
+            /* otherwise we sent incomplete data, so just keep waiting */
+            break;
+        case STATE_WAIT:
+            if (c->halfclosed) {
+                c->pending_timeout = -1;
+                remove_waiting_conn(c);
+                reply_msg(c, MSG_TIMED_OUT);
+                return;
+            }
+            break;
     }
 }
 
@@ -2111,8 +2091,7 @@ conn_process_io(Conn *c)
 #define cmd_data_ready(c) (want_command(c) && (c)->cmd_read)
 
 static void
-h_conn(const int fd, const short which, Conn *c)
-{
+h_conn(const int fd, const short which, Conn *c) {
     if (fd != c->sock.fd) {
         twarnx("Argh! event fd doesn't match conn fd.");
         close(fd);
@@ -2125,92 +2104,104 @@ h_conn(const int fd, const short which, Conn *c)
         c->halfclosed = 1;
     }
 
+    // 链接状态维护 读取命令
     conn_process_io(c);
+
+    // 判断命令读取完成
+    // cmd_data_ready(c) 判断
     while (cmd_data_ready(c) && (c->cmd_len = scan_line_end(c->cmd, c->cmd_read))) {
+        // 处理命令
         dispatch_cmd(c);
+        // 填充扩展数据
         fill_extra_data(c);
     }
+    // 连接已经关闭 从epoll队列中移除并关闭连接
     if (c->state == STATE_CLOSE) {
+        // 从epollq队列移除客户端连接
         epollq_rmconn(c);
+        // 关闭客户端连接
         connclose(c);
     }
     epollq_apply();
 }
 
 static void
-prothandle(Conn *c, int ev)
-{
+prothandle(Conn *c, int ev) {
     h_conn(c->sock.fd, ev, c);
 }
 
 // prottick returns nanoseconds till the next work.
 int64
-prottick(Server *s)
-{
+prottick(Server *s) {
     Job *j;
     int64 now;
     Tube *t;
+    // 没有快到期任务超时时间默认一小时
     int64 period = 0x34630B8A000LL; /* 1 hour in nanoseconds */
     int64 d;
 
     now = nanoseconds();
 
-    // Enqueue all jobs that are no longer delayed.
-    // Capture the smallest period from the soonest delayed job.
+    // 查询最早要到期的job
     while ((j = soonest_delayed_job())) {
         d = j->r.deadline_at - now;
         if (d > 0) {
             period = min(period, d);
             break;
         }
+        // 已经超时任务 从tube延时队列移除
         heapremove(&j->tube->delay, j->heap_index);
+        // 将job加入ready队列
         int r = enqueue_job(s, j, 0, 0);
+        // 内存不够job进入休眠
         if (r < 1)
             bury_job(s, j, 0);  /* out of memory */
     }
 
-    // Unpause every possible tube and process the queue.
-    // Capture the smallest period from the soonest pause deadline.
-    size_t i;
+    // 遍历所有tubes处理所有暂停时间到期的job 并且找出延时时间最近的job的时间
+    int i;
     for (i = 0; i < tubes.len; i++) {
         t = tubes.items[i];
         d = t->unpause_at - now;
         if (t->pause && d <= 0) {
             t->pause = 0;
             process_queue();
-        }
-        else if (d > 0) {
+        } else if (d > 0) {
             period = min(period, d);
         }
     }
 
-    // Process connections with pending timeouts. Release jobs with expired ttr.
-    // Capture the smallest period from the soonest connection.
+    // 从coons中找出reserve job ttr时间最早的coon
     while (s->conns.len) {
         Conn *c = s->conns.data[0];
+        // c->tickat reserve job的 ttr 到期时间
         d = c->tickat - now;
         if (d > 0) {
+            // 大于0说明所有reserve的job都没有超时
             period = min(period, d);
             break;
         }
+
+        // 有处理时间超时的job，先从coons链表中删除然后进入超时处理逻辑
         heapremove(&s->conns, 0);
         c->in_conns = 0;
         conn_timeout(c);
     }
 
+    // 把epollq队列所有连接和对应事件加入epoll进行监听
     epollq_apply();
 
     return period;
 }
 
 void
-h_accept(const int fd, const short which, Server *s)
-{
+h_accept(const int fd, const short which, Server *s) {
     UNUSED_PARAMETER(which);
     struct sockaddr_storage addr;
 
     socklen_t addrlen = sizeof addr;
-    int cfd = accept(fd, (struct sockaddr *)&addr, &addrlen);
+    // 从server fd accept 客户端fd 并且获取客户端ip
+    int cfd = accept(fd, (struct sockaddr *) &addr, &addrlen);
     if (cfd == -1) {
         if (errno != EAGAIN && errno != EWOULDBLOCK) twarn("accept()");
         epollq_apply();
@@ -2220,6 +2211,7 @@ h_accept(const int fd, const short which, Server *s)
         printf("accept %d\n", cfd);
     }
 
+    // 获取客户端fd当前标志位
     int flags = fcntl(cfd, F_GETFL, 0);
     if (flags < 0) {
         twarn("getting flags");
@@ -2231,6 +2223,7 @@ h_accept(const int fd, const short which, Server *s)
         return;
     }
 
+    // 设置客户端fd 非阻塞模式
     int r = fcntl(cfd, F_SETFL, flags | O_NONBLOCK);
     if (r < 0) {
         twarn("setting O_NONBLOCK");
@@ -2242,6 +2235,7 @@ h_accept(const int fd, const short which, Server *s)
         return;
     }
 
+    // 创建客户端Conn对象
     Conn *c = make_conn(cfd, STATE_WANT_COMMAND, default_tube, default_tube);
     if (!c) {
         twarnx("make_conn() failed");
@@ -2252,11 +2246,13 @@ h_accept(const int fd, const short which, Server *s)
         epollq_apply();
         return;
     }
-    c->srv = s;
-    c->sock.x = c;
-    c->sock.f = (Handle)prothandle;
-    c->sock.fd = cfd;
 
+    c->srv = s;                      // server对象赋值
+    c->sock.x = c;                   // 连接对象
+    c->sock.f = (Handle) prothandle; // 命令处理函数 用于处理客户端发送命令
+    c->sock.fd = cfd;                // 客户端连接文件描述符
+
+    // 将客户端连接注册到epoll监听读事件
     r = sockwant(&c->sock, 'r');
     if (r == -1) {
         twarn("sockwant");
@@ -2265,15 +2261,16 @@ h_accept(const int fd, const short which, Server *s)
             printf("close %d\n", cfd);
         }
     }
+
     epollq_apply();
 }
 
 void
-prot_init()
-{
+prot_init() {
     started_at = nanoseconds();
     memset(op_ct, 0, sizeof(op_ct));
 
+    // 读取随机数生成instance_id
     int dev_random = open("/dev/urandom", O_RDONLY);
     if (dev_random < 0) {
         twarn("open /dev/urandom");
@@ -2292,13 +2289,16 @@ prot_init()
     }
     close(dev_random);
 
+    // 系统和硬件信息
     if (uname(&node_info) == -1) {
         warn("uname");
         exit(50);
     }
 
+    // 初始化tubes链表
     ms_init(&tubes, NULL, NULL);
 
+    // 查询default tube不存在则创建并赋值
     TUBE_ASSIGN(default_tube, tube_find_or_make("default"));
     if (!default_tube)
         twarnx("Out of memory during startup!");
@@ -2309,35 +2309,39 @@ prot_init()
 //
 // Returns 1 on success, 0 on failure.
 int
-prot_replay(Server *s, Job *list)
-{
+prot_replay(Server *s, Job *list) {
     Job *j, *nj;
     int64 t;
     int r;
 
-    for (j = list->next ; j != list ; j = nj) {
+    for (j = list->next; j != list; j = nj) {
         nj = j->next;
+        // 从list中删除job
         job_list_remove(j);
+        // 从wal中腾出空间以准备放入job
         int z = walresvupdate(&s->wal);
         if (!z) {
             twarnx("failed to reserve space");
             return 0;
         }
+
         int64 delay = 0;
         switch (j->r.state) {
-        case Buried: {
-            bury_job(s, j, 0);
-            break;
-        }
-        case Delayed:
-            t = nanoseconds();
-            if (t < j->r.deadline_at) {
-                delay = j->r.deadline_at - t;
+            case Buried: {
+                // 休眠 直接加入到休眠队列
+                bury_job(s, j, 0);
+                break;
             }
-            /* Falls through */
-        default:
-            r = enqueue_job(s, j, delay, 0);
-            if (r < 1)
+            case Delayed:
+                // 计算延时时间
+                t = nanoseconds();
+                if (t < j->r.deadline_at) {
+                    delay = j->r.deadline_at - t;
+                }
+                /* Falls through */
+            default:
+                r = enqueue_job(s, j, delay, 0);
+                if (r < 1)
                 twarnx("error recovering job %"PRIu64, j->r.id);
         }
     }
