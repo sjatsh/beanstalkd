@@ -11,7 +11,7 @@ All notable changes to this project will be documented in this file.
 - add draining status to the "stats" command
 - make fsync turned on by default when binlog is used: it's synced every 50ms instead of never
 - replace vendored systemd files with libsystemd
-- systemd usage can be controlled with USE_SYSTEMD=yes/no
+- systemd usage can be ontrolled with USE_SYSTEMD=yes/no
 - specify C99 as required compiler
 
 ## [1.11] - 2019-06-29

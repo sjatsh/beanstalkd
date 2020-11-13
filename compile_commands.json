@@ -1,0 +1,227 @@
+[
+ {
+  "directory": "/Users/sj/workspace/c/beanstalkd", 
+  "arguments": [
+   "cc", 
+   "-Wall", 
+   "-Werror", 
+   "-Wformat=2", 
+   "-g", 
+   "-c", 
+   "-o", 
+   "time.o", 
+   "time.c"
+  ], 
+  "file": "time.c"
+ }, 
+ {
+  "directory": "/Users/sj/workspace/c/beanstalkd", 
+  "arguments": [
+   "cc", 
+   "-Wall", 
+   "-Werror", 
+   "-Wformat=2", 
+   "-g", 
+   "-c", 
+   "-o", 
+   "net.o", 
+   "net.c"
+  ], 
+  "file": "net.c"
+ }, 
+ {
+  "directory": "/Users/sj/workspace/c/beanstalkd", 
+  "arguments": [
+   "cc", 
+   "-Wall", 
+   "-Werror", 
+   "-Wformat=2", 
+   "-g", 
+   "-c", 
+   "-o", 
+   "walg.o", 
+   "walg.c"
+  ], 
+  "file": "walg.c"
+ }, 
+ {
+  "directory": "/Users/sj/workspace/c/beanstalkd", 
+  "arguments": [
+   "cc", 
+   "-Wall", 
+   "-Werror", 
+   "-Wformat=2", 
+   "-g", 
+   "-c", 
+   "-o", 
+   "primes.o", 
+   "primes.c"
+  ], 
+  "file": "primes.c"
+ }, 
+ {
+  "directory": "/Users/sj/workspace/c/beanstalkd", 
+  "arguments": [
+   "cc", 
+   "-Wall", 
+   "-Werror", 
+   "-Wformat=2", 
+   "-g", 
+   "-c", 
+   "-o", 
+   "prot.o", 
+   "prot.c"
+  ], 
+  "file": "prot.c"
+ }, 
+ {
+  "directory": "/Users/sj/workspace/c/beanstalkd", 
+  "arguments": [
+   "cc", 
+   "-Wall", 
+   "-Werror", 
+   "-Wformat=2", 
+   "-g", 
+   "-c", 
+   "-o", 
+   "job.o", 
+   "job.c"
+  ], 
+  "file": "job.c"
+ }, 
+ {
+  "directory": "/Users/sj/workspace/c/beanstalkd", 
+  "arguments": [
+   "cc", 
+   "-Wall", 
+   "-Werror", 
+   "-Wformat=2", 
+   "-g", 
+   "-c", 
+   "-o", 
+   "file.o", 
+   "file.c"
+  ], 
+  "file": "file.c"
+ }, 
+ {
+  "directory": "/Users/sj/workspace/c/beanstalkd", 
+  "arguments": [
+   "cc", 
+   "-Wall", 
+   "-Werror", 
+   "-Wformat=2", 
+   "-g", 
+   "-c", 
+   "-o", 
+   "util.o", 
+   "util.c"
+  ], 
+  "file": "util.c"
+ }, 
+ {
+  "directory": "/Users/sj/workspace/c/beanstalkd", 
+  "arguments": [
+   "cc", 
+   "-Wall", 
+   "-Werror", 
+   "-Wformat=2", 
+   "-g", 
+   "-c", 
+   "-o", 
+   "tube.o", 
+   "tube.c"
+  ], 
+  "file": "tube.c"
+ }, 
+ {
+  "directory": "/Users/sj/workspace/c/beanstalkd", 
+  "arguments": [
+   "cc", 
+   "-Wall", 
+   "-Werror", 
+   "-Wformat=2", 
+   "-g", 
+   "-c", 
+   "-o", 
+   "darwin.o", 
+   "darwin.c"
+  ], 
+  "file": "darwin.c"
+ }, 
+ {
+  "directory": "/Users/sj/workspace/c/beanstalkd", 
+  "arguments": [
+   "cc", 
+   "-Wall", 
+   "-Werror", 
+   "-Wformat=2", 
+   "-g", 
+   "-c", 
+   "-o", 
+   "heap.o", 
+   "heap.c"
+  ], 
+  "file": "heap.c"
+ }, 
+ {
+  "directory": "/Users/sj/workspace/c/beanstalkd", 
+  "arguments": [
+   "cc", 
+   "-Wall", 
+   "-Werror", 
+   "-Wformat=2", 
+   "-g", 
+   "-c", 
+   "-o", 
+   "serv.o", 
+   "serv.c"
+  ], 
+  "file": "serv.c"
+ }, 
+ {
+  "directory": "/Users/sj/workspace/c/beanstalkd", 
+  "arguments": [
+   "cc", 
+   "-Wall", 
+   "-Werror", 
+   "-Wformat=2", 
+   "-g", 
+   "-c", 
+   "-o", 
+   "ms.o", 
+   "ms.c"
+  ], 
+  "file": "ms.c"
+ }, 
+ {
+  "directory": "/Users/sj/workspace/c/beanstalkd", 
+  "arguments": [
+   "cc", 
+   "-Wall", 
+   "-Werror", 
+   "-Wformat=2", 
+   "-g", 
+   "-c", 
+   "-o", 
+   "main.o", 
+   "main.c"
+  ], 
+  "file": "main.c"
+ }, 
+ {
+  "directory": "/Users/sj/workspace/c/beanstalkd", 
+  "arguments": [
+   "cc", 
+   "-Wall", 
+   "-Werror", 
+   "-Wformat=2", 
+   "-g", 
+   "-c", 
+   "-o", 
+   "conn.o", 
+   "conn.c"
+  ], 
+  "file": "conn.c"
+ }
+]
